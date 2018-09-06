@@ -30,7 +30,7 @@ class Webpack implements \Phulp\PipeInterface
         // Start building command
         $baseCmd = $this->bin;
         $baseCmd .= ' --mode '.$this->mode;
-        $baseCmd .= ' --display verbose';
+        $baseCmd .= ' --display normal';
 
         // Set environment vars
         if ($this->env) {
