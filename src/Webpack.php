@@ -1,6 +1,7 @@
-<?php namespace NSRosenqvist\Phulp;
+<?php namespace NSRosenqvist\Phulp\Webpack;
 
 use Phulp\Source;
+use Zend\Json\Json;
 
 class Webpack implements \Phulp\PipeInterface
 {
@@ -9,7 +10,7 @@ class Webpack implements \Phulp\PipeInterface
     private $env;
     private $mode = 'none';
 
-    public function __construct(array $config = [], string $bin = 'webpack')
+    public function __construct($config = [], string $bin = 'webpack')
     {
         $this->bin = $bin;
         $this->config = $config;
@@ -30,7 +31,6 @@ class Webpack implements \Phulp\PipeInterface
         // Start building command
         $baseCmd = $this->bin;
         $baseCmd .= ' --mode '.$this->mode;
-        $baseCmd .= ' --display normal';
 
         // Set environment vars
         if ($this->env) {
@@ -41,33 +41,43 @@ class Webpack implements \Phulp\PipeInterface
 
         // Load config if set
         if (! empty($this->config)) {
-            // If output options are set that manipulate the filename or path we
-            // save those rules to apply them later
-            if (isset($this->config['output'])) {
-                $rename = [];
-
-                // Save rename rule for directory
-                if (isset($this->config['output']['path'])) {
-                    $rename['directory'] = $this->config['output']['path'];
-                    unset($this->config['output']['path']);
-                }
-                // Save rename rule for filename
-                elseif (isset($this->config['output']['filename'])) {
-                    $rename['filename'] = $this->config['output']['filename'];
-                    unset($this->config['output']['filename']);
-                }
-
-                if (empty($this->config['output'])) {
-                    unset($this->config['output']);
-                }
+            // String (path)
+            if (is_string($this->config)) {
+                $baseCmd .= ' --config '.$this->config;
             }
+            // Arrays
+            elseif (is_array($this->config)) {
+                // If output options are set that manipulate the filename or path we
+                // save those rules to apply them later
+                if (isset($this->config['output'])) {
+                    $rename = [];
 
-            if (! empty($this->config)) {
-                // Create a temporary config file
-                $tmpConfig = tempnam(sys_get_temp_dir(), 'tmpConfig');
-                file_put_contents($tmpConfig, 'module.exports = '.json_encode($this->config));
+                    // Save rename rule for directory
+                    if (isset($this->config['output']['path'])) {
+                        $rename['directory'] = $this->config['output']['path'];
+                        unset($this->config['output']['path']);
+                    }
+                    // Save rename rule for filename
+                    elseif (isset($this->config['output']['filename'])) {
+                        $rename['filename'] = $this->config['output']['filename'];
+                        unset($this->config['output']['filename']);
+                    }
 
-                $baseCmd .= ' --config '.$tmpConfig;
+                    if (empty($this->config['output'])) {
+                        unset($this->config['output']);
+                    }
+                }
+
+                if (! empty($this->config)) {
+                    // Use Zend JSON in order to support raw output (Regex)
+                    $json = Json::encode($this->config, false, ['enableJsonExprFinder' => true]);
+
+                    // Create a temporary config file
+                    $tmpConfig = tempnam(sys_get_temp_dir(), 'tmpConfig');
+                    file_put_contents($tmpConfig, 'module.exports = '.Json::prettyPrint($json, array('indent' => '  ')));
+
+                    $baseCmd .= ' --config '.$tmpConfig;
+                }
             }
         }
 
